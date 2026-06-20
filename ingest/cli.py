@@ -70,6 +70,47 @@ def investopedia(
     _print_summary(result, manifest_path="data/processed/investopedia/manifest.jsonl")
 
 
+@app.command()
+def boe(
+    refresh: Annotated[bool, typer.Option("--refresh", help="Re-fetch even if cached")] = False,
+    limit: Annotated[Optional[int], typer.Option("--limit", help="Process only first N URLs")] = None,
+    skip_discovery: Annotated[bool, typer.Option("--skip-discovery", help="Use only cached raw HTML")] = False,
+) -> None:
+    """Crawl and parse the BoE Knowledge Bank explainer articles."""
+    from ingest.errors import CircuitBreakerOpen
+    from ingest.sources import boe as boe_mod
+    from ingest import http as http_mod
+
+    if skip_discovery:
+        raw_dir = boe_mod._RAW_DIR
+        urls = sorted(
+            f"https://www.bankofengland.co.uk/explainers/{p.stem}"
+            for p in raw_dir.glob("*.html")
+        ) if raw_dir.exists() else []
+        typer.echo(f"BoE (offline): {len(urls)} cached articles")
+    else:
+        typer.echo("BoE: discovering articles (two-pass crawl)...")
+        cb = http_mod.CircuitBreaker()
+        try:
+            urls = boe_mod.discover_urls(cb)
+        except CircuitBreakerOpen as exc:
+            typer.echo(f"\nABORTED during discovery — {exc}", err=True)
+            raise typer.Exit(1)
+        typer.echo(f"BoE: discovered {len(urls)} unique article URLs")
+
+    if limit is not None:
+        urls = urls[:limit]
+        typer.echo(f"BoE: processing first {len(urls)} (--limit)")
+
+    try:
+        result = boe_mod.run(urls, refresh=refresh)
+    except CircuitBreakerOpen as exc:
+        typer.echo(f"\nABORTED — {exc}", err=True)
+        raise typer.Exit(1)
+
+    _print_summary(result, manifest_path="data/processed/boe/manifest.jsonl")
+
+
 def _print_summary(result: dict, manifest_path: str) -> None:
     counts = result["counts"]
     errors = result["errors_by_category"]
