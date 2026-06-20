@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Env
+.env
+
+# Data (never commit downloaded docs or vector index)
+data/raw/*
+data/processed/*
+data/index/*
+!data/**/.gitkeep
+
+# Node (for later)
+node_modules/
+.next/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
