@@ -1,6 +1,6 @@
 # finance-kb
 
-Personal knowledge base for EU/UK capital reporting — a learning project combining domain knowledge acquisition with AI engineering practice.
+Personal knowledge base for finance, banking and (eventually) EU/UK capital reporting — a learning project combining bottom-up domain knowledge acquisition with AI engineering practice.
 
 ## Owner context
 
@@ -13,6 +13,16 @@ Personal knowledge base for EU/UK capital reporting — a learning project combi
 ## Goal
 
 A personal LLM-powered Q&A system over public regulatory documents on capital reporting. Owner uses it to look up terminology, build conceptual understanding, and as a reference while learning the domain.
+
+## Conceptual layering
+
+Domain learning is structured bottom-up in three layers:
+
+- **Layer 1 — foundational finance and banking**: instruments, trades, positions, markets, participants. **Phase 0 starts here.**
+- **Layer 2 — risk**: market, credit, operational, liquidity risk. Future phase.
+- **Layer 3 — capital**: Basel III, EBA, PRA, CRR. Future phase.
+
+The architecture must not preclude later expansion to Layers 2 and 3.
 
 ## Architecture
 
@@ -30,6 +40,11 @@ Three-piece split:
 - **Embedding provider deferred**: decide once a real document has been handled and we can reason about cost/quality trade-offs.
 - **Geographic scope**: EU/UK capital reporting first (Basel III, CRD-CRR, EBA, PRA). NA/APAC are future scope but the architecture shouldn't preclude them.
 - **Sources**: public materials only. Owner cannot use internal JPMC/HSBC documents (corporate boundary). Public materials from those institutions (investor reports, regulatory submissions, published research) are acceptable.
+- **Phase 0 source pair**: Investopedia (curated subset, ~50 articles) + Bank of England Knowledge Bank. Two deliberately different shapes — HTML glossary entries vs narrative explainers — to exercise the chunking pipeline against varied document structure.
+- **Usage & licensing**: personal use only, never published, always cited. RAG output must cite the original URL. Investopedia content © Investopedia (Dotdash Meredith), used under personal, non-commercial fair use. BoE content is Crown copyright under the Open Government Licence (OGL) — verify exact terms during ingestion.
+- **Repository hosting**: private GitHub, single-owner. Corpus content under `data/` stays gitignored and is never committed even though the repo is private. Committed: code, specs, sources registry, URL lists, learnings, `.env.example`. Not committed: `.env`, `data/` contents.
+- **LLM and embedding architecture — leaning direction, confirmed in-stage (Steps 005–006).** The current lean for Phase 0 is Pattern B: local embeddings via `sentence-transformers` + paid Claude API for answer generation, with a local Chroma vector store. Rationale: free local embeddings keep the indexing stage inspectable and re-runnable without metering, while paid Claude generation gives the answer quality that matters most for a learning-focused tool. This is **not locked** — choosing the embedding approach (local vs a paid API such as Voyage) is itself one of the AI-engineering decisions to weigh and make at the relevant stage. For now we deliberately avoid putting money at risk on a paid embedding API while still learning, and treat the choice above as the default to validate, not a commitment. Contextual Retrieval (Anthropic's chunk-enrichment technique — https://www.anthropic.com/engineering/contextual-retrieval) is a likely Step 005+ upgrade once the baseline works, not part of the initial build.
+- **Claude.ai subscription does not power this project.** The owner's Pro/Max subscription is for the chat UI only; programmatic calls from this project's code go through the paid Claude API on a per-token basis. At personal-use query volumes (tens of queries/day), monthly API spend is in single-digit dollars. **Cost is not the constraint to optimise for** — quality, inspectability, and the owner's learning are.
 
 ## Current phase
 
@@ -37,27 +52,34 @@ Three-piece split:
 
 Roadmap within Phase 0:
 
-- **Step 001** — Bare scaffold (uv project, Typer CLI stub, directory skeleton).
-- **Step 002** — Source curation (planning task, not coding): pick the first 2 public docs.
-- **Step 003** — First ingestion script: download + parse one PDF, produce clean text. No chunking, no embedding yet.
-- **Step 004+** — Chunking strategy, embedding, retrieval, minimal end-to-end RAG.
+- **Step 001** ✅ Bare scaffold.
+- **Step 002** ✅ Source curation.
+- **Step 003** — Investopedia ingestion script (HTML fetch + clean).
+- **Step 004** — BoE Knowledge Bank ingestion script (different HTML shape).
+- **Step 005** — Chunking strategy.
+- **Step 006** — Embedding + Chroma vector store.
+- **Step 007** — Minimal end-to-end RAG via CLI.
+- **Step 008+** — FastAPI backend, then web frontend.
 
 ## Working style
 
 Plan-implementation loops:
 
 1. Planning conversations happen in Claude UI (claude.ai). Owner is "the planner."
-2. Each step gets a focused spec at `docs/stepNNN-short-name.md` (zero-padded, three digits) that Claude Code uses to implement.
+2. Each implementation step gets a focused spec at `docs/steps/step-NNN-short-name.md` (zero-padded, three digits) that Claude Code uses to implement.
 3. This `CLAUDE.md` holds persistent context — update it whenever a durable decision is made.
 4. Owner does not write code by hand; Claude Code drives implementation.
 5. Owner wants to **learn** at every stage — explanations of *why* matter as much as code. Don't skip the "why this chunking strategy" or "why this embedding model" conversations.
+6. Steps come in two kinds. **Planning steps** (e.g. source curation) produce no `step-NNN-*.md` spec — their output is updates to `docs/` and this `CLAUDE.md`. **Implementation steps** do get a `docs/steps/step-NNN-short-name.md` spec that Claude Code implements.
+7. Step specs in `docs/steps/` are **write-once history** — frozen once the step ships, never edited afterwards. Durable decisions get promoted into this `CLAUDE.md`; the spec stays as the record of what the step was asked to do and why.
 
 ## Conventions
 
 - Python 3.12+, type hints throughout.
 - Typer for all CLIs.
 - Each ingestion step independently runnable and inspectable from the command line.
-- Sources tracked in `docs/sources.md` (name, URL, jurisdiction, doc type, date retrieved, version, notes).
+- Sources tracked in `docs/sources.md` as per-source sections (not a flat table), each recording name, URL, jurisdiction, doc type, date retrieved, version, and notes.
+- Per-source URL lists live in their own files (e.g. `docs/investopedia-articles.md`).
 - Learnings captured in `docs/learnings.md` (capital concepts encountered, terminology clarified, surprises).
 - No internal/proprietary docs in `data/`. Only publicly retrievable materials.
 
