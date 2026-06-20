@@ -29,3 +29,25 @@ What I'm aiming to actually understand:
 ---
 
 ## Entries
+
+> **2026-06-20 — Cost model for the RAG system (AI-engineering note)**
+>
+> Worked out where the money actually goes, because I had no intuition for the magnitude. Anthropic API prices are authoritative (from the claude-api skill); the paid-embedding figures are from memory and need verifying before relying on them.
+>
+> **Sizing assumption:** Phase 0 corpus ≈ 50 Investopedia + ~100 BoE explainers ≈ **250k–350k tokens total**. Tiny — and that changes which fears are real.
+>
+> Three cost buckets, very different sizes:
+>
+> 1. **Embedding the corpus (one-off, repeats each re-index).** Local `sentence-transformers` = **$0** (runs on the Mac, unmetered). A paid embedding API *at this size* would be **~$0.01–0.06 for the whole corpus** — pennies. The "don't get stung by Voyage" instinct is sound as a principle but the real exposure is cents here; that fear is about million-to-billion-token corpora, not 150 articles. So local-vs-paid is a learning/inspectability call, not a cost one.
+> 2. **Contextual Retrieval enrichment (Step 005+ upgrade, one-off per re-index).** LLM call per chunk with the parent doc as context — *generation*, not embedding. With prompt caching ≈ **<$1 for this corpus**, a couple dollars without. First place real tokens get spent across the whole corpus.
+> 3. **Query-time generation (the recurring/monthly cost — this is the real "x").** Per question: retrieve ~5–15 chunks (~3–5k input tokens incl. system prompt + question) → ~600-token cited answer.
+>
+> | Generation model | $/query | @10 q/day (~300/mo) | @30 q/day (~900/mo) |
+> |---|---|---|---|
+> | Opus 4.8 ($5/$25 per 1M) | ~$0.040 | ~$12/mo | ~$36/mo |
+> | Sonnet 4.6 ($3/$15) | ~$0.024 | ~$7/mo | ~$22/mo |
+> | Haiku 4.5 ($1/$5) | ~$0.008 | ~$2/mo | ~$7/mo |
+>
+> **Takeaways:** recurring cost is **~$5–35/month**, and the dominant dial is *which model generates the answer* — not embeddings, vector store, or corpus size. One-off index cost is **$0–5**. Nothing here reaches hundreds at this scale.
+>
+> **What could actually sting** (not embeddings): (1) a bug that loops queries; (2) switching to a paid embedding API *and* a much larger corpus later (Layer 2/3 regulatory PDFs); (3) Opus + high `max_tokens` on a chatty loop. Guardrails that cap the downside: **set a spend cap + alert in the Anthropic Console**, keep embeddings **local** so re-indexing stays unmetered, and **log `response.usage` per query** so x is measured, not guessed. `count_tokens` prices a query before sending it. Step 007 (RAG CLI) is the place to print per-query cost.
