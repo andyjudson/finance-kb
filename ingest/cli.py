@@ -111,6 +111,19 @@ def boe(
     _print_summary(result, manifest_path="data/processed/boe/manifest.jsonl")
 
 
+@app.command("boe-glossary")
+def boe_glossary(
+    refresh: Annotated[bool, typer.Option("--refresh", help="Re-fetch even if cached")] = False,
+    limit: Annotated[Optional[int], typer.Option("--limit", help="Process only first N terms")] = None,
+) -> None:
+    """Fetch and parse the BoE A-Z glossary (~570 abbreviation terms)."""
+    from ingest.sources import boe_glossary as bg
+
+    typer.echo("BoE Glossary: fetching and parsing...")
+    result = bg.run(refresh=refresh, limit=limit)
+    _print_summary(result, manifest_path="data/processed/boe_glossary/manifest.jsonl")
+
+
 def _print_summary(result: dict, manifest_path: str) -> None:
     counts = result["counts"]
     errors = result["errors_by_category"]
